@@ -22,6 +22,13 @@
   with_items:
     - { r: '^PASS_MIN_LEN', l: 'PASS_MIN_LEN    10' }
 
+- name: Check login.defs permissions
+  file:
+    dest: /etc/login.defs
+    owner: root
+    group: root
+    mode: '444'
+
 - name: Ensure initscripts package is present
   package:
     name: initscripts
@@ -49,3 +56,43 @@
 - include: yum-cron.yml
   when: harden_security_update_auto
 
+- name: Ensure YUM Removes Previous Package Versions
+  lineinfile:
+    dest: /etc/yum.conf
+    regexp: '^clean_requirements_on_remove=.*'
+    line: 'clean_requirements_on_remove=1'
+
+- name: Ensure gpgcheck Enabled for Local Packages
+  lineinfile:
+    dest: /etc/yum.conf
+    regexp: '^localpkg_gpgcheck=.*'
+    line: 'localpkg_gpgcheck=1'
+
+- name: Disable the Automounter
+  service:
+    name: autofs
+    enabled: no
+    state: stopped
+  ignore_errors: true
+
+# password-auth: Set Deny For Failed Password Attempts - CCE-27350-8, CCE-26884-7
+# https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/security_guide/chap-hardening_your_system_with_tools_and_services#sect-Security_Guide-Workstation_Security-Account_Locking = Keeping Custom Settings with authconfig
+# system-auth: CCE-26923-3, CCE-27286-4
+- name: Configure pam.d local system-auth and password-auth
+  template:
+    src: "rhel-{{ item }}.j2"
+    dest: "/etc/pam.d/{{ item }}"
+    backup: yes
+  with_items:
+    - password-auth-local
+    - system-auth-local
+
+- name: Link pam.d local system-auth and password-auth
+  file:
+    src: "{{ item }}-local"
+    dest: "/etc/pam.d/{{ item }}"
+    state: link
+  with_items:
+    - password-auth
+    - system-auth
+  ignore_errors: true

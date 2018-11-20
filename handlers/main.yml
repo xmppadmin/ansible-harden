@@ -6,11 +6,19 @@
 
 - name: restart iptables
   service: name=iptables-persistent state=restarted
-  when: (ansible_distribution == 'Debian' or (ansible_distribution == 'Ubuntu' and ansible_lsb.major_release|int < 16)) and not (ansible_virtualization_type is defined and ansible_virtualization_type == "docker")
+  when: (ansible_distribution == 'Debian' or (ansible_distribution == 'Ubuntu' and ansible_distribution_major_version|int < 16)) and not (ansible_virtualization_type is defined and ansible_virtualization_type == "docker")
 
 - name: restart iptables - xenial
   service: name=netfilter-persistent state=restarted
-  when: (ansible_distribution == 'Ubuntu' and ansible_lsb.major_release|int >= 16)
+  when: (ansible_distribution == 'Ubuntu' and ansible_distribution_major_version|int >= 16)
+
+- name: restart iptables - redhat
+  service: name=iptables state=restarted
+  when: (ansible_os_family == 'RedHat' and not (ansible_virtualization_type is defined and ansible_virtualization_type == "docker"))
+
+- name: restart ip6tables - redhat
+  service: name=ip6tables state=restarted
+  when: (ansible_os_family == 'RedHat' and not (ansible_virtualization_type is defined and ansible_virtualization_type == "docker") and ipv6_config != 'disable')
 
 - name: restart auditd
   service: name=auditd state=restarted
@@ -52,3 +60,7 @@
 - name: restart monit
   service: name=monit state=restarted
   when: not (ansible_virtualization_type is defined and ansible_virtualization_type == "docker")
+
+- name: update-initramfs
+  command: update-initramfs -k all -u
+  when: ansible_os_family == "Debian"
